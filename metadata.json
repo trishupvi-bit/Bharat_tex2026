@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Ginza Textile Hub",
+  "description": "The official digital showcase and enquiry hub for Ginza Limited at the Bharat Tex Exhibition.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
