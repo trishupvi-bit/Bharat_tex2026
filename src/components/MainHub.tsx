@@ -35,17 +35,17 @@ export default function MainHub({ onNavigate, visitCount }: MainHubProps) {
   const navButtons = [
     {
       id: 'CATALOGUE' as ActivePage,
-      title: 'Digital Catalogue',
-      subtitle: 'Browse Warp Knits, Laces & Narrow Fabrics',
+      title: '  Company Profile',
+      subtitle: 'Browse Corporate Brochure, Vision & Milestones',
       icon: BookOpen,
       color: 'from-amber-500/10 to-rose-500/10 hover:from-amber-500/15 hover:to-rose-500/15',
       iconColor: 'text-amber-600',
       borderColor: 'border-amber-200/50 hover:border-amber-400',
-      badge: 'Interactive'
+      badge: 'Interactive Brochure'
     },
     {
       id: 'INSTAGRAM' as ActivePage,
-      title: 'Instagram Lookbook',
+      title: 'Instagram',
       subtitle: 'Explore Behind-the-Scenes & High-Tech Looms',
       icon: Instagram,
       color: 'from-pink-500/10 to-purple-500/10 hover:from-pink-500/15 hover:to-purple-500/15',
@@ -55,7 +55,7 @@ export default function MainHub({ onNavigate, visitCount }: MainHubProps) {
     },
     {
       id: 'LINKEDIN' as ActivePage,
-      title: 'LinkedIn Lookbook',
+      title: 'Linkedin',
       subtitle: 'Official Updates, Corporate Posts & Articles',
       icon: Linkedin,
       color: 'from-blue-600/10 to-sky-500/10 hover:from-blue-600/15 hover:to-sky-500/15',
@@ -213,9 +213,6 @@ export default function MainHub({ onNavigate, visitCount }: MainHubProps) {
         </div>
 
         {/* Quietly styled Visitor / Stall scan indicator */}
-        <p className="text-slate-500 font-mono text-[10px] tracking-wider mb-2">
-          Stall Digital Hub • Scan Code to Share
-        </p>
         
         {/* Subtle security dashboard activator */}
         <button

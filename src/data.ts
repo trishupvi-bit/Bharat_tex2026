@@ -44,7 +44,7 @@ export const CATALOGUE_ITEMS: CatalogueItem[] = [
     code: "GZ-LACE-NYLON-01",
     title: "Nylon Lace",
     category: "NYLON LACE",
-    image: "https://images.unsplash.com/photo-1599733589046-9b8308b5b50d?w=600&auto=format&fit=crop&q=80",
+    image: "https://images.unsplash.com/photo-1599933589046-9b8308b5b50d?w=600&auto=format&fit=crop&q=80",
     description: "Premium nylon lace featuring exquisite floral detailing, high tensile strength, and a luxurious soft hand feel. Ideal for high-end lingerie, intimate wear, and couture paneling.",
     composition: "100% Nylon",
     weight: "85 GSM",

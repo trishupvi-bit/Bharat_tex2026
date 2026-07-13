@@ -139,6 +139,11 @@ export function logVisit(): void {
     analytics.totalVisits += 1;
     saveAnalytics(analytics);
     safeSessionStorage.setItem(sessionKey, 'true');
+
+    // Asynchronously synchronize with central Express backend
+    fetch('/api/analytics/visit', { method: 'POST' }).catch(err =>
+      console.warn('Failed to sync visit to server:', err)
+    );
   }
 }
 
@@ -149,6 +154,15 @@ export function logButtonClick(button: keyof ButtonClicks): void {
   const analytics = getAnalytics();
   analytics.clicks[button] = (analytics.clicks[button] || 0) + 1;
   saveAnalytics(analytics);
+
+  // Asynchronously synchronize button clicks to central server
+  fetch('/api/analytics/click', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ button })
+  }).catch(err =>
+    console.warn('Failed to sync button click to server:', err)
+  );
 }
 
 /**
@@ -161,6 +175,15 @@ export function logProductView(productId: string): void {
   }
   analytics.productViews[productId] = (analytics.productViews[productId] || 0) + 1;
   saveAnalytics(analytics);
+
+  // Asynchronously synchronize product view to central server
+  fetch('/api/analytics/product-view', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId })
+  }).catch(err =>
+    console.warn('Failed to sync product view to server:', err)
+  );
 }
 
 /**

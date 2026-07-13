@@ -80,7 +80,7 @@ export default function InstagramView({ onBack }: InstagramViewProps) {
 
         <div className="flex items-center space-x-1 text-pink-500">
           <Instagram className="w-4 h-4" />
-          <span className="font-display font-bold text-sm text-slate-100 tracking-tight">Instagram Lookbook</span>
+          <span className="font-display font-bold text-sm text-slate-100 tracking-tight">Instagram</span>
         </div>
       </div>
 

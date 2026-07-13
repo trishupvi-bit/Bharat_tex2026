@@ -33,9 +33,23 @@ export default function App() {
     // 1. Log visit immediately when app mounts on the client
     logVisit();
     
-    // 2. Fetch visitor stats to display or feed to hub
+    // 2. Fetch visitor stats from local storage for zero-latency initial render
     const analytics = getAnalytics();
-    setVisitCount(analytics.totalVisits);
+    setVisitCount(analytics.totalVisits || 1);
+
+    // 3. Centralize visitor stats in real-time from the backend server
+    fetch('/api/analytics')
+      .then(res => {
+        if (res.ok) return res.json();
+      })
+      .then(data => {
+        if (data && typeof data.totalVisits === 'number') {
+          setVisitCount(data.totalVisits);
+          // Sync back to local storage
+          localStorage.setItem('ginza_analytics_v1', JSON.stringify(data));
+        }
+      })
+      .catch(err => console.warn('Failed to fetch central analytics:', err));
   }, []);
 
   const handleNavigateToEnquiry = (productName?: string, productCode?: string) => {

@@ -28,34 +28,99 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     console.warn('Failed to access window.location.href:', e);
   }
 
-  const loadData = () => {
+  const loadData = async () => {
+    // Instant local storage load
     setAnalytics(getAnalytics());
     setEnquiries(getEnquiries());
+
+    // Centralized server sync
+    try {
+      const resAnal = await fetch('/api/analytics');
+      if (resAnal.ok) {
+        const dataAnal = await resAnal.json();
+        setAnalytics(dataAnal);
+        localStorage.setItem('ginza_analytics_v1', JSON.stringify(dataAnal));
+      }
+      
+      const resEnq = await fetch('/api/enquiries');
+      if (resEnq.ok) {
+        const dataEnq = await resEnq.json();
+        setEnquiries(dataEnq);
+        localStorage.setItem('ginza_enquiries_v1', JSON.stringify(dataEnq));
+      }
+    } catch (e) {
+      console.warn('Failed to sync centralized data from server API:', e);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const handleStatusChange = (id: string, status: Enquiry['status']) => {
+  const handleStatusChange = async (id: string, status: Enquiry['status']) => {
+    // Local optimistic update
     const updated = updateEnquiryStatus(id, status);
     setEnquiries(updated);
     showToast('Lead status updated!');
-  };
 
-  const handleDeleteEnquiry = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this enquiry? This action cannot be undone.')) {
-      const updated = deleteEnquiry(id);
-      setEnquiries(updated);
-      showToast('Lead deleted successfully.');
+    // Backend sync
+    try {
+      const res = await fetch(`/api/enquiries/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        const serverData = await res.json();
+        setEnquiries(serverData);
+        localStorage.setItem('ginza_enquiries_v1', JSON.stringify(serverData));
+      }
+    } catch (e) {
+      console.error('Failed to sync status to server:', e);
     }
   };
 
-  const handleResetData = () => {
+  const handleDeleteEnquiry = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this enquiry? This action cannot be undone.')) {
+      // Local optimistic delete
+      const updated = deleteEnquiry(id);
+      setEnquiries(updated);
+      showToast('Lead deleted successfully.');
+
+      // Backend sync
+      try {
+        const res = await fetch(`/api/enquiries/${id}`, {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          const serverData = await res.json();
+          setEnquiries(serverData);
+          localStorage.setItem('ginza_enquiries_v1', JSON.stringify(serverData));
+        }
+      } catch (e) {
+        console.error('Failed to sync delete to server:', e);
+      }
+    }
+  };
+
+  const handleResetData = async () => {
+    // Local reset
     resetSystemData();
     loadData();
     setShowResetConfirm(false);
     showToast('All analytics and enquiries have been reset.');
+
+    // Backend sync
+    try {
+      const res = await fetch('/api/reset', { method: 'POST' });
+      if (res.ok) {
+        const dbState = await res.json();
+        setAnalytics(dbState.analytics);
+        setEnquiries(dbState.enquiries);
+      }
+    } catch (e) {
+      console.error('Failed to sync reset to server:', e);
+    }
   };
 
   const showToast = (msg: string) => {
@@ -80,18 +145,20 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     { label: 'Submit Enquiry Form', count: analytics.clicks.enquiry, color: 'bg-emerald-500' }
   ];
 
-  // Map product view analytics to names
+  // Map product view analytics to names, filtering out non-catalogue items
   const productViewData = Object.entries(analytics.productViews || {})
     .map(([id, views]) => {
       const product = CATALOGUE_ITEMS.find(p => p.id === id);
       const viewCount = typeof views === 'number' ? views : Number(views) || 0;
       return {
         id,
+        product,
         title: product ? product.title : id,
         code: product ? product.code : 'UNKNOWN',
         views: viewCount
       };
     })
+    .filter(item => item.product !== undefined) // ONLY show products currently in the catalogue!
     .sort((a, b) => b.views - a.views);
 
   return (

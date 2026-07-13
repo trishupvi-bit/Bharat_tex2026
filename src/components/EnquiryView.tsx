@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, MessageSquare, Send, CheckCircle2, Building, Mail, Phone, User, Info, FileText, MapPin } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Send, CheckCircle2, Building, Mail, Phone, User, Info, FileText, MapPin, ExternalLink, Sparkles } from 'lucide-react';
 import { addEnquiry, logButtonClick } from '../utils';
 import { GINZA_INFO } from '../data';
 
@@ -21,11 +21,12 @@ export default function EnquiryView({ onBack, preselectedProduct, preselectedCod
   const [email, setEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
   const [phone, setPhone] = useState('');
-  const [categoryInterest, setCategoryInterest] = useState('Warp Knits & Mesh');
+  const [categoryInterest, setCategoryInterest] = useState('GPO DULL POLYESTER LACE');
   const [volumeRequirement, setVolumeRequirement] = useState('Sampling / Swatch Card');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [formMode, setFormMode] = useState<'live-link' | 'manual-form'>('live-link');
 
   useEffect(() => {
     logButtonClick('enquiry');
@@ -36,31 +37,48 @@ export default function EnquiryView({ onBack, preselectedProduct, preselectedCod
     }
   }, [preselectedProduct, preselectedCode]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !companyName || !email || !phone) return;
 
     setIsSubmitting(true);
 
-    // Simulate network latency (makes it look professional and authentic)
-    setTimeout(() => {
-      addEnquiry({
-        fullName,
-        companyName,
-        email,
-        phone: `${countryCode} ${phone}`,
-        categoryInterest,
-        volumeRequirement,
-        message
+    const payload = {
+      fullName,
+      companyName,
+      email,
+      phone: `${countryCode} ${phone}`,
+      categoryInterest,
+      volumeRequirement,
+      message
+    };
+
+    // 1. Instantly save to local storage (zero lag fallback)
+    addEnquiry(payload);
+
+    // 2. Synchronize to the centralized Express database
+    try {
+      const response = await fetch('/api/enquiries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
       });
-      setIsSubmitting(false);
-      setIsSuccess(true);
-    }, 1200);
+      if (response.ok) {
+        // Enquiries successfully centralized
+        console.log('Enquiry successfully centralized to backend');
+      }
+    } catch (err) {
+      console.warn('Backend server unreachable, saved to local storage fallback:', err);
+    }
+
+    setIsSubmitting(false);
+    setIsSuccess(true);
   };
 
   const categories = [
-    'Warp Knits & Mesh',
-    'Intimate Laces',
+    'GPO DULL POLYESTER LACE',
     'Narrow Elastics',
     'Eco-Sustainable',
     'Technical Spacer',
@@ -118,162 +136,233 @@ export default function EnquiryView({ onBack, preselectedProduct, preselectedCod
             exit={{ opacity: 0 }}
             className="flex-1 flex flex-col"
           >
-            {/* Lead capture banner description */}
-            <div className="mb-5">
-              <h2 className="font-display font-extrabold text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-emerald-200">
-                Textile Swatch & Quote Inquiry
-              </h2>
-              <p className="text-slate-400 text-xs mt-1.5 leading-relaxed font-light">
-                Submit your sample requirements directly. We will prepare physical swatch cards and coordinate quotes immediately.
-              </p>
+            {/* Form Mode Switcher Pills */}
+            <div className="grid grid-cols-2 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 mb-5">
+              <button
+                type="button"
+                onClick={() => setFormMode('live-link')}
+                className={`py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 ${
+                  formMode === 'live-link'
+                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/10'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Live Central Form</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormMode('manual-form')}
+                className={`py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 ${
+                  formMode === 'manual-form'
+                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/10'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Offline Swatch Form</span>
+              </button>
             </div>
 
-            {/* Main Form Box */}
-            <form onSubmit={handleSubmit} className="space-y-4 flex-1">
-              {/* Full Name */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                  <User className="w-3 h-3 text-emerald-500" />
-                  <span>Full Name *</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="E.g., Rajesh Mehta"
-                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
-                />
-              </div>
-
-              {/* Company Name */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                  <Building className="w-3 h-3 text-emerald-500" />
-                  <span>Company Name *</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="E.g., Paramount Apparel Ltd."
-                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
-                />
-              </div>
-
-              {/* Contact Email */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                  <Mail className="w-3 h-3 text-emerald-500" />
-                  <span>Email Address *</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="E.g., procurement@paramount.com"
-                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
-                />
-              </div>
-
-              {/* Phone Number */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                  <Phone className="w-3 h-3 text-emerald-500" />
-                  <span>Phone Number *</span>
-                </label>
-                <div className="flex space-x-2">
-                  <select
-                    value={countryCode}
-                    onChange={(e) => setCountryCode(e.target.value)}
-                    className="bg-slate-900 border border-slate-850 rounded-xl px-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono max-w-[85px]"
+            {formMode === 'live-link' ? (
+              <div className="flex-1 flex flex-col space-y-4">
+                <div className="bg-slate-900/60 border border-slate-850/80 rounded-2xl p-4 text-center space-y-3">
+                  <p className="text-xs text-slate-300 font-light leading-relaxed">
+                    Access our centralized global enquiry system. Fill out the form directly on this page or launch it in a separate tab.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        window.open('https://ais-dev-oj5nr6266syedyd6sp3rys-706272152911.asia-southeast1.run.app/', '_blank', 'noopener,noreferrer');
+                      } catch (err) {
+                        console.error('Failed to open form:', err);
+                      }
+                    }}
+                    className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold text-xs rounded-xl transition-all duration-200 shadow-md flex items-center justify-center space-x-1.5 cursor-pointer"
                   >
-                    {countryCodes.map((cc) => (
-                      <option key={cc.code} value={cc.code}>
-                        {cc.name} ({cc.code})
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} // only allow digits
-                    placeholder="98765 43210"
-                    className="flex-1 px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 font-mono"
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open Form in New Tab</span>
+                  </button>
+                </div>
+
+                <div className="w-full flex-1 min-h-[550px] relative rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl">
+                  {/* Subtle loading spinner behind the iframe */}
+                  <div className="absolute inset-0 flex items-center justify-center z-0 bg-slate-950/80">
+                    <div className="flex flex-col items-center space-y-2">
+                      <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-[10px] text-slate-500 font-mono tracking-widest uppercase">Loading Live Form...</span>
+                    </div>
+                  </div>
+                  <iframe
+                    src="https://ais-dev-oj5nr6266syedyd6sp3rys-706272152911.asia-southeast1.run.app/"
+                    className="w-full h-[550px] border-0 relative z-10 rounded-2xl"
+                    title="Centralized Enquiry Form"
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                    referrerPolicy="no-referrer"
                   />
                 </div>
               </div>
+            ) : (
+              <>
+                {/* Lead capture banner description */}
+                <div className="mb-5">
+                  <h2 className="font-display font-extrabold text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-emerald-200">
+                    Textile Swatch & Quote Inquiry
+                  </h2>
+                  <p className="text-slate-400 text-xs mt-1.5 leading-relaxed font-light">
+                    Submit your sample requirements directly. We will prepare physical swatch cards and coordinate quotes immediately.
+                  </p>
+                </div>
 
-              {/* Category of Interest */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                  <Info className="w-3 h-3 text-emerald-500" />
-                  <span>Category of Interest</span>
-                </label>
-                <select
-                  value={categoryInterest}
-                  onChange={(e) => setCategoryInterest(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
-                >
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
+                {/* Main Form Box */}
+                <form onSubmit={handleSubmit} className="space-y-4 flex-1">
+                  {/* Full Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
+                      <User className="w-3 h-3 text-emerald-500" />
+                      <span>Full Name *</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="E.g., Rajesh Mehta"
+                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                    />
+                  </div>
 
-              {/* Requirement Volume */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                  <FileText className="w-3 h-3 text-emerald-500" />
-                  <span>Target Requirement Volume</span>
-                </label>
-                <select
-                  value={volumeRequirement}
-                  onChange={(e) => setVolumeRequirement(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
-                >
-                  {volumes.map((vol) => (
-                    <option key={vol} value={vol}>{vol}</option>
-                  ))}
-                </select>
-              </div>
+                  {/* Company Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
+                      <Building className="w-3 h-3 text-emerald-500" />
+                      <span>Company Name *</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="E.g., Paramount Apparel Ltd."
+                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                    />
+                  </div>
 
-              {/* Requirement message */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                  <MessageSquare className="w-3 h-3 text-emerald-500" />
-                  <span>Specific Requirements / Message</span>
-                </label>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Specify product codes, custom colors, GSM, elastic width requirements, or schedule a meeting..."
-                  rows={4}
-                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 leading-relaxed font-light resize-none"
-                />
-              </div>
+                  {/* Contact Email */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
+                      <Mail className="w-3 h-3 text-emerald-500" />
+                      <span>Email Address *</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="E.g., procurement@paramount.com"
+                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                    />
+                  </div>
 
-              {/* Submit Trigger Action */}
-              <div className="pt-2 pb-6">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-xl transition-all duration-200 shadow-lg shadow-emerald-500/15 flex items-center justify-center space-x-2"
-                >
-                  {isSubmitting ? (
-                    <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Submit Trade Enquiry</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+                  {/* Phone Number */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
+                      <Phone className="w-3 h-3 text-emerald-500" />
+                      <span>Phone Number *</span>
+                    </label>
+                    <div className="flex space-x-2">
+                      <select
+                        value={countryCode}
+                        onChange={(e) => setCountryCode(e.target.value)}
+                        className="bg-slate-900 border border-slate-850 rounded-xl px-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono max-w-[85px]"
+                      >
+                        {countryCodes.map((cc) => (
+                          <option key={cc.code} value={cc.code}>
+                            {cc.name} ({cc.code})
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="tel"
+                        required
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} // only allow digits
+                        placeholder="98765 43210"
+                        className="flex-1 px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Category of Interest */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
+                      <Info className="w-3 h-3 text-emerald-500" />
+                      <span>Category of Interest</span>
+                    </label>
+                    <select
+                      value={categoryInterest}
+                      onChange={(e) => setCategoryInterest(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Requirement Volume */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
+                      <FileText className="w-3 h-3 text-emerald-500" />
+                      <span>Target Requirement Volume</span>
+                    </label>
+                    <select
+                      value={volumeRequirement}
+                      onChange={(e) => setVolumeRequirement(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                    >
+                      {volumes.map((vol) => (
+                        <option key={vol} value={vol}>{vol}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Requirement message */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
+                      <MessageSquare className="w-3 h-3 text-emerald-500" />
+                      <span>Specific Requirements / Message</span>
+                    </label>
+                    <textarea
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder="Specify product codes, custom colors, GSM, elastic width requirements, or schedule a meeting..."
+                      rows={4}
+                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 leading-relaxed font-light resize-none"
+                    />
+                  </div>
+
+                  {/* Submit Trigger Action */}
+                  <div className="pt-2 pb-6">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-xl transition-all duration-200 shadow-lg shadow-emerald-500/15 flex items-center justify-center space-x-2"
+                    >
+                      {isSubmitting ? (
+                        <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Submit Trade Enquiry</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </motion.div>
         ) : (
           <motion.div
