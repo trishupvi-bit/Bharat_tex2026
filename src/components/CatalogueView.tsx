@@ -20,7 +20,7 @@ interface CompanyProfileViewProps {
 }
 
 export default function CatalogueView({ onBack, onNavigateToEnquiry }: CompanyProfileViewProps) {
-  const [profileMode, setProfileMode] = useState<'google-slides' | 'local-brochure'>('local-brochure');
+  const [profileMode, setProfileMode] = useState<'google-slides' | 'local-brochure'>('google-slides');
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(100);
   const [showThumbnails, setShowThumbnails] = useState(true);
@@ -164,31 +164,7 @@ Email: exports@ginzalimited.com
           </div>
         </div>
 
-        {/* Dual Mode Switcher Pills */}
-        <div className="grid grid-cols-2 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
-          <button
-            onClick={() => setProfileMode('local-brochure')}
-            className={`py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 ${
-              profileMode === 'local-brochure'
-                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Brochure (Same Page)</span>
-          </button>
-          <button
-            onClick={() => setProfileMode('google-slides')}
-            className={`py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 ${
-              profileMode === 'google-slides'
-                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Google Slides</span>
-          </button>
-        </div>
+
 
         {/* Real PDF Reader styled Chrome bar (only shown in local-brochure mode) */}
         {profileMode === 'local-brochure' && (

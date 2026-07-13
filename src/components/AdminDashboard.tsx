@@ -15,7 +15,7 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboard({ onBack }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'enquiries' | 'qr'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'enquiries'>('analytics');
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -196,7 +196,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
       </div>
 
       {/* Main Tabs (Hidden on print) */}
-      <div className="grid grid-cols-3 gap-1 bg-slate-900/60 p-1 rounded-xl border border-slate-850 mb-5 print:hidden">
+      <div className="grid grid-cols-2 gap-1 bg-slate-900/60 p-1 rounded-xl border border-slate-850 mb-5 print:hidden">
         <button
           onClick={() => setActiveTab('analytics')}
           className={`py-2 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-all duration-200 flex flex-col items-center space-y-1 ${
@@ -221,17 +221,6 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
           {enquiries.filter(e => e.status === 'new').length > 0 && (
             <span className="absolute top-1 right-3 w-2 h-2 bg-rose-500 rounded-full animate-ping" />
           )}
-        </button>
-        <button
-          onClick={() => setActiveTab('qr')}
-          className={`py-2 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-all duration-200 flex flex-col items-center space-y-1 ${
-            activeTab === 'qr'
-              ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Printer className="w-4 h-4" />
-          <span>Stall QR Stand</span>
         </button>
       </div>
 
@@ -470,85 +459,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
           </motion.div>
         )}
 
-        {/* TAB 3: PRINTABLE STALL QR TENT CARD */}
-        {activeTab === 'qr' && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
-            {/* Quick print helper banner (Hidden on print) */}
-            <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl space-y-3.5 print:hidden">
-              <h3 className="font-display font-bold text-sm text-slate-100 flex items-center space-x-2">
-                <Printer className="w-4.5 h-4.5 text-amber-500" />
-                <span>One QR Code Stall Display</span>
-              </h3>
-              <p className="text-slate-300 text-xs font-light leading-relaxed">
-                Display this beautifully generated tent card at your reception desk or on your fabric racks. Visitors can scan it to instantly load this digital portal on their own phones!
-              </p>
-              
-              <button
-                onClick={handlePrint}
-                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition-all duration-200 shadow-md shadow-amber-500/15 flex items-center justify-center space-x-1.5"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Print Display Poster</span>
-              </button>
-            </div>
 
-            {/* Actual Printable Tent Card Content */}
-            <div className="bg-white text-slate-900 border-2 border-slate-300 rounded-2xl p-6 shadow-2xl relative overflow-hidden flex flex-col items-center text-center space-y-6 mx-auto w-full max-w-sm print:shadow-none print:border-0 print:p-0 print:rounded-none">
-              
-              {/* Decorative design flourishes */}
-              <div className="w-full border-b-2 border-slate-900 pb-4 flex flex-col items-center">
-                <img 
-                  src="https://www.ginzalimited.com/cdn/shop/files/Ginza_logo.jpg?v=1668509673&width=500" 
-                  alt="GINZA Logo" 
-                  className="h-10 object-contain mb-2"
-                  referrerPolicy="no-referrer"
-                />
-                <p className="text-[10px] font-mono font-bold tracking-widest text-slate-500 uppercase">Welcome to our Stall</p>
-                <h1 className="font-display font-black text-2xl tracking-tight text-slate-900 uppercase mt-0.5">
-                  Ginza Limited
-                </h1>
-                <p className="text-xs font-semibold text-rose-600 tracking-wider uppercase mt-1">
-                  Bharat Tex 2026 • Hall 2, Booth H2-B14
-                </p>
-              </div>
-
-              {/* Central CTA */}
-              <div className="space-y-1.5">
-                <h2 className="font-display font-extrabold text-base text-slate-950 leading-tight">
-                  Scan to Explore Our Digital Stall
-                </h2>
-                <p className="text-[10px] text-slate-500 font-medium px-4 leading-relaxed">
-                  Avoid physical paper waste. Instantly access:
-                </p>
-                <div className="flex flex-wrap justify-center gap-1.5 pt-2 text-[8px] font-bold uppercase tracking-wider">
-                  <span className="bg-slate-100 border border-slate-200 px-2 py-1 rounded text-slate-700">Digital Catalogue</span>
-                  <span className="bg-slate-100 border border-slate-200 px-2 py-1 rounded text-slate-700">Instagram Lookbook</span>
-                  <span className="bg-slate-100 border border-slate-200 px-2 py-1 rounded text-slate-700">Submit Enquiry Form</span>
-                </div>
-              </div>
-
-              {/* Dynamic QR Code Image */}
-              <div className="bg-slate-50 border-4 border-slate-900 p-4 rounded-2xl shadow-md">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(currentUrl)}`}
-                  alt="Stall Hub QR Code"
-                  className="w-44 h-44 print:w-56 print:h-56"
-                />
-              </div>
-
-              {/* Footer instruction line */}
-              <div className="border-t border-slate-200 pt-4 w-full text-center">
-                <p className="text-[9px] font-mono text-slate-400 uppercase tracking-widest">Powered by Ginza Textile Analytics</p>
-                <p className="text-[8px] text-slate-400 mt-1 truncate max-w-[280px] mx-auto font-mono">{currentUrl}</p>
-              </div>
-
-            </div>
-          </motion.div>
-        )}
       </div>
     </div>
   );
