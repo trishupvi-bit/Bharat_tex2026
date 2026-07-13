@@ -5,9 +5,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, MessageSquare, Send, CheckCircle2, Building, Mail, Phone, User, Info, FileText, MapPin, ExternalLink, Sparkles } from 'lucide-react';
-import { addEnquiry, logButtonClick } from '../utils';
-import { GINZA_INFO } from '../data';
+import { ArrowLeft, MessageSquare, ExternalLink, Send, CheckCircle2, User, Building, Mail, Phone, FileText, Sparkles } from 'lucide-react';
+import { logButtonClick } from '../utils';
 
 interface EnquiryViewProps {
   onBack: () => void;
@@ -16,95 +15,61 @@ interface EnquiryViewProps {
 }
 
 export default function EnquiryView({ onBack, preselectedProduct, preselectedCode }: EnquiryViewProps) {
+  const [formMode, setFormMode] = useState<'direct-form' | 'live-link'>('direct-form');
   const [fullName, setFullName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
-  const [countryCode, setCountryCode] = useState('+91');
   const [phone, setPhone] = useState('');
-  const [categoryInterest, setCategoryInterest] = useState('GPO DULL POLYESTER LACE');
-  const [volumeRequirement, setVolumeRequirement] = useState('Sampling / Swatch Card');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [formMode, setFormMode] = useState<'live-link' | 'manual-form'>('live-link');
 
   useEffect(() => {
     logButtonClick('enquiry');
-    
-    // Auto populate if came from catalogue details
     if (preselectedProduct && preselectedCode) {
-      setMessage(`Hi Ginza Team, I am interested in exploring your textile product: "${preselectedProduct}" (Code: ${preselectedCode}). Please arrange a physical swatch sample card for us at our booth or address.`);
+      setMessage(`I am interested in product "${preselectedProduct}" (Code: ${preselectedCode}). Please send more details and pricing.`);
     }
   }, [preselectedProduct, preselectedCode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !companyName || !email || !phone) return;
-
     setIsSubmitting(true);
 
-    const payload = {
-      fullName,
-      companyName,
-      email,
-      phone: `${countryCode} ${phone}`,
-      categoryInterest,
-      volumeRequirement,
-      message
-    };
-
-    // 1. Instantly save to local storage (zero lag fallback)
-    addEnquiry(payload);
-
-    // 2. Synchronize to the centralized Express database
     try {
       const response = await fetch('/api/enquiries', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          fullName,
+          companyName,
+          email,
+          phone,
+          categoryInterest: preselectedProduct || 'General Enquiry',
+          volumeRequirement: 'Standard',
+          message,
+        }),
       });
+
       if (response.ok) {
-        // Enquiries successfully centralized
-        console.log('Enquiry successfully centralized to backend');
+        setIsSuccess(true);
+        // Clear fields
+        setFullName('');
+        setCompanyName('');
+        setEmail('');
+        setPhone('');
+        setMessage('');
+      } else {
+        alert('Failed to submit enquiry. Please try again.');
       }
     } catch (err) {
-      console.warn('Backend server unreachable, saved to local storage fallback:', err);
+      console.error('Error submitting enquiry:', err);
+      alert('A network error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
-    setIsSuccess(true);
   };
-
-  const categories = [
-    'GPO DULL POLYESTER LACE',
-    'Narrow Elastics',
-    'Eco-Sustainable',
-    'Technical Spacer',
-    'Custom Product Development'
-  ];
-
-  const volumes = [
-    'Sampling / Swatch Card',
-    'Small Trial Order (< 1000m)',
-    'Bulk Production (1000m - 5000m)',
-    'Enterprise Contract (> 5000m)'
-  ];
-
-  const countryCodes = [
-    { code: '+91', name: 'IN' },
-    { code: '+1', name: 'US/CA' },
-    { code: '+44', name: 'UK' },
-    { code: '+49', name: 'DE' },
-    { code: '+81', name: 'JP' },
-    { code: '+86', name: 'CN' },
-    { code: '+33', name: 'FR' },
-    { code: '+39', name: 'IT' },
-    { code: '+971', name: 'AE' },
-    { code: '+880', name: 'BD' },
-    { code: '+94', name: 'LK' }
-  ];
 
   return (
     <div className="w-full max-w-md mx-auto min-h-screen flex flex-col bg-slate-950 text-white relative p-4 pb-16">
@@ -116,6 +81,7 @@ export default function EnquiryView({ onBack, preselectedProduct, preselectedCod
         <button
           onClick={onBack}
           className="flex items-center space-x-1.5 text-xs text-slate-400 hover:text-emerald-400 transition-colors duration-200 bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg font-medium"
+          id="btn-back-hub"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Hub</span>
@@ -127,303 +93,247 @@ export default function EnquiryView({ onBack, preselectedProduct, preselectedCod
         </div>
       </div>
 
-      <AnimatePresence mode="wait">
-        {!isSuccess ? (
-          <motion.div
-            key="form"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex-1 flex flex-col"
+      <div className="flex-1 flex flex-col">
+        {/* Form Mode Switcher Pills */}
+        <div className="grid grid-cols-2 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 mb-5">
+          <button
+            type="button"
+            onClick={() => setFormMode('direct-form')}
+            className={`py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 ${
+              formMode === 'direct-form'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/10'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+            }`}
+            id="tab-direct-form"
           >
-            {/* Form Mode Switcher Pills */}
-            <div className="grid grid-cols-2 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 mb-5">
-              <button
-                type="button"
-                onClick={() => setFormMode('live-link')}
-                className={`py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 ${
-                  formMode === 'live-link'
-                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/10'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Live Central Form</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormMode('manual-form')}
-                className={`py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 ${
-                  formMode === 'manual-form'
-                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/10'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Offline Swatch Form</span>
-              </button>
-            </div>
-
-            {formMode === 'live-link' ? (
-              <div className="flex-1 flex flex-col space-y-4">
-                <div className="bg-slate-900/60 border border-slate-850/80 rounded-2xl p-4 text-center space-y-3">
-                  <p className="text-xs text-slate-300 font-light leading-relaxed">
-                    Access our centralized global enquiry system. Fill out the form directly on this page or launch it in a separate tab.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      try {
-                        window.open('https://ais-dev-oj5nr6266syedyd6sp3rys-706272152911.asia-southeast1.run.app/', '_blank', 'noopener,noreferrer');
-                      } catch (err) {
-                        console.error('Failed to open form:', err);
-                      }
-                    }}
-                    className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold text-xs rounded-xl transition-all duration-200 shadow-md flex items-center justify-center space-x-1.5 cursor-pointer"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Open Form in New Tab</span>
-                  </button>
-                </div>
-
-                <div className="w-full flex-1 min-h-[550px] relative rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl">
-                  {/* Subtle loading spinner behind the iframe */}
-                  <div className="absolute inset-0 flex items-center justify-center z-0 bg-slate-950/80">
-                    <div className="flex flex-col items-center space-y-2">
-                      <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-[10px] text-slate-500 font-mono tracking-widest uppercase">Loading Live Form...</span>
-                    </div>
-                  </div>
-                  <iframe
-                    src="https://ais-dev-oj5nr6266syedyd6sp3rys-706272152911.asia-southeast1.run.app/"
-                    className="w-full h-[550px] border-0 relative z-10 rounded-2xl"
-                    title="Centralized Enquiry Form"
-                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Lead capture banner description */}
-                <div className="mb-5">
-                  <h2 className="font-display font-extrabold text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-emerald-200">
-                    Textile Swatch & Quote Inquiry
-                  </h2>
-                  <p className="text-slate-400 text-xs mt-1.5 leading-relaxed font-light">
-                    Submit your sample requirements directly. We will prepare physical swatch cards and coordinate quotes immediately.
-                  </p>
-                </div>
-
-                {/* Main Form Box */}
-                <form onSubmit={handleSubmit} className="space-y-4 flex-1">
-                  {/* Full Name */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                      <User className="w-3 h-3 text-emerald-500" />
-                      <span>Full Name *</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="E.g., Rajesh Mehta"
-                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
-                    />
-                  </div>
-
-                  {/* Company Name */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                      <Building className="w-3 h-3 text-emerald-500" />
-                      <span>Company Name *</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="E.g., Paramount Apparel Ltd."
-                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
-                    />
-                  </div>
-
-                  {/* Contact Email */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                      <Mail className="w-3 h-3 text-emerald-500" />
-                      <span>Email Address *</span>
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="E.g., procurement@paramount.com"
-                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
-                    />
-                  </div>
-
-                  {/* Phone Number */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                      <Phone className="w-3 h-3 text-emerald-500" />
-                      <span>Phone Number *</span>
-                    </label>
-                    <div className="flex space-x-2">
-                      <select
-                        value={countryCode}
-                        onChange={(e) => setCountryCode(e.target.value)}
-                        className="bg-slate-900 border border-slate-850 rounded-xl px-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono max-w-[85px]"
-                      >
-                        {countryCodes.map((cc) => (
-                          <option key={cc.code} value={cc.code}>
-                            {cc.name} ({cc.code})
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="tel"
-                        required
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} // only allow digits
-                        placeholder="98765 43210"
-                        className="flex-1 px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Category of Interest */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                      <Info className="w-3 h-3 text-emerald-500" />
-                      <span>Category of Interest</span>
-                    </label>
-                    <select
-                      value={categoryInterest}
-                      onChange={(e) => setCategoryInterest(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
-                    >
-                      {categories.map((cat) => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Requirement Volume */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                      <FileText className="w-3 h-3 text-emerald-500" />
-                      <span>Target Requirement Volume</span>
-                    </label>
-                    <select
-                      value={volumeRequirement}
-                      onChange={(e) => setVolumeRequirement(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
-                    >
-                      {volumes.map((vol) => (
-                        <option key={vol} value={vol}>{vol}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Requirement message */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1">
-                      <MessageSquare className="w-3 h-3 text-emerald-500" />
-                      <span>Specific Requirements / Message</span>
-                    </label>
-                    <textarea
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Specify product codes, custom colors, GSM, elastic width requirements, or schedule a meeting..."
-                      rows={4}
-                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 leading-relaxed font-light resize-none"
-                    />
-                  </div>
-
-                  {/* Submit Trigger Action */}
-                  <div className="pt-2 pb-6">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-xl transition-all duration-200 shadow-lg shadow-emerald-500/15 flex items-center justify-center space-x-2"
-                    >
-                      {isSubmitting ? (
-                        <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <Send className="w-3.5 h-3.5" />
-                          <span>Submit Trade Enquiry</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </>
-            )}
-          </motion.div>
-        ) : (
-          <motion.div
-            key="success"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex-1 flex flex-col items-center justify-center text-center px-4"
+            <FileText className="w-3.5 h-3.5" />
+            <span>Enquiry Form (Direct)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormMode('live-link')}
+            className={`py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 ${
+              formMode === 'live-link'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/10'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+            }`}
+            id="tab-live-link"
           >
-            {/* Animated Checkmark Badge */}
-            <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-xl shadow-emerald-500/5 mb-6">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Live Central Form</span>
+          </button>
+        </div>
 
-            <h3 className="font-display font-extrabold text-xl text-white tracking-tight leading-tight">
-              Enquiry Submitted Successfully!
-            </h3>
-            <p className="text-slate-400 text-xs mt-3 leading-relaxed font-light max-w-xs">
-              Thank you for connecting, <strong className="text-slate-200">{fullName}</strong> from <strong className="text-slate-200">{companyName}</strong>.
-            </p>
-
-            {/* Swatch collection callout box */}
-            <div className="bg-slate-900/60 border border-slate-850/80 rounded-2xl p-4.5 mt-6 text-left space-y-3 w-full">
-              <div className="flex items-center space-x-2 text-emerald-400 font-display font-bold text-xs">
-                <MapPin className="w-4 h-4" />
-                <span>Visit our Stall Booth</span>
+        <AnimatePresence mode="wait">
+          {isSuccess ? (
+            <motion.div
+              key="success"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4"
+              id="success-view"
+            >
+              <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/10 animate-bounce">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
-              <p className="text-[11px] text-slate-300 font-light leading-relaxed">
-                Please feel free to meet our export representatives at our exhibition pavilion. Quote your name and company to instantly collect your physical swatch books and sample cards:
-              </p>
-              <div className="bg-slate-950/60 p-3 rounded-lg border border-slate-850">
-                <p className="text-xs font-semibold text-slate-200">{GINZA_INFO.name}</p>
-                <p className="text-[10px] text-amber-400 font-mono mt-1">{GINZA_INFO.booth}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5 leading-none">{GINZA_INFO.exhibition}</p>
+              <div className="space-y-1.5">
+                <h3 className="font-display font-bold text-lg text-slate-100">Enquiry Submitted!</h3>
+                <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed font-light">
+                  Thank you for submitting your enquiry. Our team will review the details and respond as soon as possible.
+                </p>
               </div>
-            </div>
+              <div className="flex flex-col space-y-2 w-full max-w-xs pt-4">
+                <button
+                  onClick={() => setIsSuccess(false)}
+                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-white font-bold text-xs rounded-xl transition-all duration-200"
+                  id="btn-another-enquiry"
+                >
+                  Submit Another Enquiry
+                </button>
+                <button
+                  onClick={onBack}
+                  className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold text-xs rounded-xl transition-all duration-200 shadow-md shadow-emerald-500/10"
+                  id="btn-back-hub-success"
+                >
+                  Return to Main Hub
+                </button>
+              </div>
+            </motion.div>
+          ) : formMode === 'direct-form' ? (
+            <motion.form
+              key="direct-form"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              onSubmit={handleSubmit}
+              className="space-y-4 flex-1 flex flex-col"
+              id="enquiry-offline-form"
+            >
+              {/* Lead capture header */}
+              <div className="mb-1">
+                <h2 className="font-display font-extrabold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-emerald-200">
+                  Direct Trade Enquiry
+                </h2>
+                <p className="text-slate-400 text-xs mt-1 leading-relaxed font-light">
+                  Submit your request directly here. Data is automatically synchronized to our central records and Google Sheets.
+                </p>
+              </div>
 
-            {/* Quick Actions buttons */}
-            <div className="flex flex-col space-y-2 w-full mt-8">
-              <button
-                onClick={onBack}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-xl text-slate-300 font-medium text-xs transition-colors duration-200"
-              >
-                Back to Exhibition Hub
-              </button>
-              <button
-                onClick={() => {
-                  setFullName('');
-                  setCompanyName('');
-                  setEmail('');
-                  setPhone('');
-                  setMessage('');
-                  setIsSuccess(false);
-                }}
-                className="text-emerald-500 hover:text-emerald-400 font-mono text-[10px] uppercase tracking-wider py-2"
-              >
-                Submit another Enquiry
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {/* Full Name */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1" htmlFor="input-full-name">
+                  <User className="w-3 h-3 text-emerald-500" />
+                  <span>Full Name *</span>
+                </label>
+                <input
+                  id="input-full-name"
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="E.g., Rajesh Mehta"
+                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              {/* Company Name */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1" htmlFor="input-company-name">
+                  <Building className="w-3 h-3 text-emerald-500" />
+                  <span>Company Name *</span>
+                </label>
+                <input
+                  id="input-company-name"
+                  type="text"
+                  required
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="E.g., Paramount Apparel Ltd."
+                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              {/* Email Address */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1" htmlFor="input-email">
+                  <Mail className="w-3 h-3 text-emerald-500" />
+                  <span>Email Address *</span>
+                </label>
+                <input
+                  id="input-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="E.g., procurement@paramount.com"
+                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              {/* Phone Number */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1" htmlFor="input-phone">
+                  <Phone className="w-3 h-3 text-emerald-500" />
+                  <span>Phone Number *</span>
+                </label>
+                <input
+                  id="input-phone"
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="E.g., +91 98765 43210"
+                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 font-mono"
+                />
+              </div>
+
+              {/* Enquiry Details */}
+              <div className="space-y-1.5 flex-1 flex flex-col">
+                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider flex items-center space-x-1" htmlFor="input-message">
+                  <FileText className="w-3 h-3 text-emerald-500" />
+                  <span>Enquiry Details / Message *</span>
+                </label>
+                <textarea
+                  id="input-message"
+                  required
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Specify fabrics, elastic types, custom requirements, colors, GSM, or physical swatch requests..."
+                  rows={4}
+                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 leading-relaxed font-light resize-none flex-1"
+                />
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-xl transition-all duration-200 shadow-lg shadow-emerald-500/15 flex items-center justify-center space-x-2 cursor-pointer"
+                  id="btn-submit-enquiry"
+                >
+                  {isSubmitting ? (
+                    <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Submit Trade Enquiry</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.form>
+          ) : (
+            <motion.div
+              key="live-link"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 flex flex-col space-y-4"
+              id="live-link-view"
+            >
+              <div className="bg-slate-900/60 border border-slate-850/80 rounded-2xl p-4 text-center space-y-3">
+                <p className="text-xs text-slate-300 font-light leading-relaxed">
+                  Access our centralized global enquiry system. Fill out the form directly on this page or launch it in a separate tab.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      window.open('https://ais-dev-oj5nr6266syedyd6sp3rys-706272152911.asia-southeast1.run.app/', '_blank', 'noopener,noreferrer');
+                    } catch (err) {
+                      console.error('Failed to open form:', err);
+                    }
+                  }}
+                  className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold text-xs rounded-xl transition-all duration-200 shadow-md flex items-center justify-center space-x-1.5 cursor-pointer"
+                  id="btn-open-form-tab"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open Form in New Tab</span>
+                </button>
+              </div>
+
+              <div className="w-full flex-1 min-h-[450px] relative rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl">
+                {/* Subtle loading spinner behind the iframe */}
+                <div className="absolute inset-0 flex items-center justify-center z-0 bg-slate-950/80">
+                  <div className="flex flex-col items-center space-y-2">
+                    <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-[10px] text-slate-500 font-mono tracking-widest uppercase animate-pulse">Loading Live Form...</span>
+                  </div>
+                </div>
+                <iframe
+                  src="https://ais-dev-oj5nr6266syedyd6sp3rys-706272152911.asia-southeast1.run.app/"
+                  className="w-full h-[450px] border-0 relative z-10 rounded-2xl"
+                  title="Centralized Enquiry Form"
+                  sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

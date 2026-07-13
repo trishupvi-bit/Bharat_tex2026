@@ -46,6 +46,7 @@ interface Enquiry {
 interface DbSchema {
   analytics: Analytics;
   enquiries: Enquiry[];
+  googleSheetUrl?: string;
 }
 
 const defaultDb: DbSchema = {
@@ -59,7 +60,8 @@ const defaultDb: DbSchema = {
     },
     productViews: {}
   },
-  enquiries: []
+  enquiries: [],
+  googleSheetUrl: ""
 };
 
 let db: DbSchema = { ...defaultDb };
@@ -75,6 +77,7 @@ function loadDb() {
       if (!db.analytics.clicks) db.analytics.clicks = { ...defaultDb.analytics.clicks };
       if (!db.analytics.productViews) db.analytics.productViews = {};
       if (!db.enquiries) db.enquiries = [];
+      if (db.googleSheetUrl === undefined) db.googleSheetUrl = "";
     } else {
       saveDb();
     }
@@ -143,7 +146,34 @@ app.post("/api/enquiries", (req, res) => {
   };
   db.enquiries.unshift(newEnquiry);
   saveDb();
+
+  // Asynchronously forward to Google Sheets if URL is configured
+  if (db.googleSheetUrl && db.googleSheetUrl.trim() !== "") {
+    fetch(db.googleSheetUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(newEnquiry)
+    }).then(async r => {
+      console.log("Synced enquiry to Google Sheets, status:", r.status);
+    }).catch(err => {
+      console.error("Failed to sync enquiry to Google Sheets Web App:", err);
+    });
+  }
+
   res.json(newEnquiry);
+});
+
+app.get("/api/settings", (req, res) => {
+  res.json({ googleSheetUrl: db.googleSheetUrl || "" });
+});
+
+app.post("/api/settings", (req, res) => {
+  const { googleSheetUrl } = req.body;
+  db.googleSheetUrl = googleSheetUrl || "";
+  saveDb();
+  res.json({ status: "success", googleSheetUrl: db.googleSheetUrl });
 });
 
 app.put("/api/enquiries/:id/status", (req, res) => {

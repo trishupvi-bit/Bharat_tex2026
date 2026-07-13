@@ -20,6 +20,10 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [googleSheetUrl, setGoogleSheetUrl] = useState('');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [showSheetInstructions, setShowSheetInstructions] = useState(false);
 
   let currentUrl = 'https://www.ginzalimited.com';
   try {
@@ -47,6 +51,12 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
         const dataEnq = await resEnq.json();
         setEnquiries(dataEnq);
         localStorage.setItem('ginza_enquiries_v1', JSON.stringify(dataEnq));
+      }
+
+      const resSettings = await fetch('/api/settings');
+      if (resSettings.ok) {
+        const dataSettings = await resSettings.json();
+        setGoogleSheetUrl(dataSettings.googleSheetUrl || '');
       }
     } catch (e) {
       console.warn('Failed to sync centralized data from server API:', e);
@@ -121,6 +131,109 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     } catch (e) {
       console.error('Failed to sync reset to server:', e);
     }
+  };
+
+  const googleAppsScriptCode = `/**
+ * Google Apps Script to save lead enquiries from Ginza Trade Portal
+ * 
+ * Instructions:
+ * 1. Open your Google Sheet: https://docs.google.com/spreadsheets/d/1RvuYa_xa1iF-z_iS0nQr3aFIeQiAZhvwLNCudex1KXw/edit
+ * 2. Click "Extensions" -> "Apps Script".
+ * 3. Delete ANY existing code in Code.gs entirely and paste this fresh script.
+ * 4. Save (Ctrl+S or click disk icon).
+ * 5. Click "Deploy" (top right) -> "New deployment".
+ * 6. Select type "Web app".
+ * 7. Set "Execute as" to "Me" (your email).
+ * 8. Set "Who has access" to "Anyone" (crucial to allow incoming submissions).
+ * 9. Click "Deploy", authorize permissions if requested, and copy the new "Web app URL".
+ * 10. Paste that Web app URL in the Admin Portal settings!
+ */
+
+function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Inquiries");
+    if (!sheet) {
+      sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Inquiries");
+      sheet.appendRow(["Timestamp", "Contact Name", "Company", "Email", "Phone", "Enquiry Details"]);
+      sheet.setFrozenRows(1);
+    }
+    
+    var data = JSON.parse(e.postData.contents);
+    
+    // Get headers
+    var lastCol = sheet.getLastColumn() || 6;
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    
+    // Set up standard direct index mapping as a baseline
+    var rowData = [];
+    for (var j = 0; j < headers.length; j++) {
+      rowData.push("");
+    }
+    
+    // 1. Map directly based on common column positions (A=Timestamp, B=Contact Name, C=Company, D=Email, E=Phone, F=Enquiry Details)
+    if (headers.length >= 1) rowData[0] = data.timestamp || new Date().toISOString();
+    if (headers.length >= 2) rowData[1] = data.fullName || "";
+    if (headers.length >= 3) rowData[2] = data.companyName || "";
+    if (headers.length >= 4) rowData[3] = data.email || "";
+    if (headers.length >= 5) rowData[4] = data.phone || "";
+    if (headers.length >= 6) rowData[5] = data.message || "";
+    
+    // 2. Map dynamically by looking at the header name (overwrites baseline if found)
+    for (var i = 0; i < headers.length; i++) {
+      var header = (headers[i] || "").toString().toLowerCase().trim();
+      if (!header) continue;
+      
+      if (header.indexOf("timestamp") !== -1 || header.indexOf("date") !== -1 || header === "time") {
+        rowData[i] = data.timestamp || new Date().toISOString();
+      } else if (header.indexOf("contact") !== -1 || header.indexOf("name") !== -1) {
+        rowData[i] = data.fullName || "";
+      } else if (header.indexOf("company") !== -1 || header.indexOf("org") !== -1 || header.indexOf("firm") !== -1) {
+        rowData[i] = data.companyName || "";
+      } else if (header.indexOf("email") !== -1 || header.indexOf("mail") !== -1) {
+        rowData[i] = data.email || "";
+      } else if (header.indexOf("phone") !== -1 || header.indexOf("mobile") !== -1 || header.indexOf("contact no") !== -1) {
+        rowData[i] = data.phone || "";
+      } else if (header.indexOf("enquiry") !== -1 || header.indexOf("details") !== -1 || header.indexOf("message") !== -1 || header.indexOf("comment") !== -1 || header.indexOf("requirement") !== -1) {
+        rowData[i] = data.message || "";
+      }
+    }
+    
+    sheet.appendRow(rowData);
+    
+    return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSettings(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ googleSheetUrl }),
+      });
+      if (res.ok) {
+        showToast('Google Sheet Sync settings saved!');
+      } else {
+        alert('Failed to save settings.');
+      }
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      alert('An error occurred while saving settings.');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(googleAppsScriptCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
   };
 
   const showToast = (msg: string) => {
@@ -364,6 +477,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
 
               {enquiries.length > 0 && (
                 <button
+                  type="button"
                   onClick={exportEnquiriesToCSV}
                   className="flex items-center space-x-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1.5 rounded-lg transition-colors duration-200 shadow-md shadow-amber-500/15"
                 >
@@ -371,6 +485,100 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                   <span>CSV Export</span>
                 </button>
               )}
+            </div>
+
+            {/* Google Sheets Sync Settings Panel */}
+            <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl space-y-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2.5 h-2.5 rounded-full ${googleSheetUrl ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`} />
+                  <span className="font-display font-bold text-xs text-slate-200">
+                    Google Sheets Auto-Sync: {googleSheetUrl ? 'Active' : 'Disabled'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSheetInstructions(!showSheetInstructions)}
+                  className="text-[10px] text-emerald-400 hover:text-emerald-300 underline font-medium transition-colors"
+                >
+                  {showSheetInstructions ? 'Hide Setup' : 'Show Setup & Apps Script'}
+                </button>
+              </div>
+
+              <AnimatePresence>
+                {showSheetInstructions && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden space-y-3 text-slate-300 text-xs font-light leading-relaxed border-t border-slate-850/60 pt-3"
+                  >
+                    <p className="font-semibold text-slate-200">Steps to connect with your Google Sheet:</p>
+                    <ol className="list-decimal list-inside space-y-1 pl-1 text-[11px] text-slate-400">
+                      <li>Open <a href="https://docs.google.com/spreadsheets/d/1RvuYa_xa1iF-z_iS0nQr3aFIeQiAZhvwLNCudex1KXw/edit" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline">your Google Sheet</a></li>
+                      <li>Go to <strong className="text-slate-300">Extensions &gt; Apps Script</strong></li>
+                      <li>Delete all existing code and paste the custom script below</li>
+                      <li>Click <strong className="text-slate-300">Deploy &gt; New deployment</strong></li>
+                      <li>Choose type <strong className="text-slate-300">Web app</strong>, execute as <strong className="text-slate-300">Me</strong>, and allow access to <strong className="text-slate-300">Anyone</strong></li>
+                      <li>Copy the deployed Web App URL and paste it below!</li>
+                    </ol>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                        <span>GOOGLE APPS SCRIPT CODE</span>
+                        <button
+                          type="button"
+                          onClick={handleCopyCode}
+                          className="px-2 py-1 bg-slate-800 text-emerald-400 rounded hover:bg-slate-750 transition-colors flex items-center space-x-1 font-sans font-bold"
+                        >
+                          {copiedCode ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Copy Script</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <pre className="p-3 bg-slate-950 border border-slate-850 rounded-xl text-[9px] font-mono overflow-x-auto max-h-40 text-slate-400 leading-normal scrollbar-thin">
+                        {googleAppsScriptCode}
+                      </pre>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <form onSubmit={handleSaveSettings} className="space-y-2 border-t border-slate-850/40 pt-3">
+                <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider block" htmlFor="input-sheet-url">
+                  Google Apps Script Web App URL
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="input-sheet-url"
+                    type="url"
+                    required
+                    value={googleSheetUrl}
+                    onChange={(e) => setGoogleSheetUrl(e.target.value)}
+                    placeholder="https://script.google.com/macros/s/.../exec"
+                    className="flex-1 px-3 py-1.5 bg-slate-950 border border-slate-850 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSavingSettings}
+                    className="px-4 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-lg transition-colors flex items-center justify-center"
+                    id="btn-save-sheet-url"
+                  >
+                    {isSavingSettings ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+                <p className="text-[9px] text-slate-500 leading-tight">
+                  When active, submissions from the Enquiry Form are pushed instantly to your Google Sheet in the "Inquiries" sheet tab.
+                </p>
+              </form>
             </div>
 
             {/* Enquiries listings */}
