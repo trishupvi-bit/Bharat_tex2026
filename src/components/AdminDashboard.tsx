@@ -36,6 +36,10 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     // Instant local storage load
     setAnalytics(getAnalytics());
     setEnquiries(getEnquiries());
+    const savedSheetUrl = localStorage.getItem('ginza_google_sheet_url') || '';
+    if (savedSheetUrl) {
+      setGoogleSheetUrl(savedSheetUrl);
+    }
 
     // Centralized server sync
     try {
@@ -57,6 +61,9 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
       if (resSettings.ok) {
         const dataSettings = await resSettings.json();
         setGoogleSheetUrl(dataSettings.googleSheetUrl || '');
+        if (dataSettings.googleSheetUrl) {
+          localStorage.setItem('ginza_google_sheet_url', dataSettings.googleSheetUrl);
+        }
       }
     } catch (e) {
       console.warn('Failed to sync centralized data from server API:', e);
@@ -211,6 +218,10 @@ function doPost(e) {
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingSettings(true);
+    
+    // Always save to localStorage so direct submission from client works in static mode
+    localStorage.setItem('ginza_google_sheet_url', googleSheetUrl);
+    
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
@@ -220,11 +231,11 @@ function doPost(e) {
       if (res.ok) {
         showToast('Google Sheet Sync settings saved!');
       } else {
-        alert('Failed to save settings.');
+        showToast('Saved to browser storage (Static Mode)!');
       }
     } catch (err) {
-      console.error('Error saving settings:', err);
-      alert('An error occurred while saving settings.');
+      console.warn('Error saving settings to API, fallback to local browser storage:', err);
+      showToast('Saved to browser storage (Static Mode)!');
     } finally {
       setIsSavingSettings(false);
     }

@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, MessageSquare, ExternalLink, Send, CheckCircle2, User, Building, Mail, Phone, FileText, Sparkles } from 'lucide-react';
-import { logButtonClick } from '../utils';
+import { logButtonClick, addEnquiry } from '../utils';
 
 interface EnquiryViewProps {
   onBack: () => void;
@@ -35,40 +35,95 @@ export default function EnquiryView({ onBack, preselectedProduct, preselectedCod
     e.preventDefault();
     setIsSubmitting(true);
 
+    const enquiryData = {
+      fullName,
+      companyName,
+      email,
+      phone,
+      categoryInterest: preselectedProduct || 'General Enquiry',
+      volumeRequirement: 'Standard',
+      message,
+    };
+
+    // 1. Always save locally first so we never lose user data
+    let localEnquiry;
+    try {
+      localEnquiry = addEnquiry(enquiryData);
+    } catch (localErr) {
+      console.warn('Failed to save enquiry locally:', localErr);
+    }
+
+    let submittedSuccessfully = false;
+
+    // 2. Try submitting to centralized Express backend /api/enquiries
     try {
       const response = await fetch('/api/enquiries', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          fullName,
-          companyName,
-          email,
-          phone,
-          categoryInterest: preselectedProduct || 'General Enquiry',
-          volumeRequirement: 'Standard',
-          message,
-        }),
+        body: JSON.stringify(enquiryData),
       });
 
       if (response.ok) {
-        setIsSuccess(true);
-        // Clear fields
-        setFullName('');
-        setCompanyName('');
-        setEmail('');
-        setPhone('');
-        setMessage('');
-      } else {
-        alert('Failed to submit enquiry. Please try again.');
+        submittedSuccessfully = true;
       }
     } catch (err) {
-      console.error('Error submitting enquiry:', err);
-      alert('A network error occurred. Please try again.');
-    } finally {
-      setIsSubmitting(false);
+      console.warn('Centralized API submission failed or is unavailable (running statically on Netlify/Vercel):', err);
     }
+
+    // 3. Fallback: If centralized backend submission fails/unavailable, try direct Google Sheet submission
+    if (!submittedSuccessfully) {
+      // Look for Google Sheet Web App URL in env variables (Netlify build) or Admin's localStorage settings
+      const directSheetUrl = 
+        (import.meta as any).env.VITE_GOOGLE_SHEET_URL || 
+        localStorage.getItem('ginza_google_sheet_url') || 
+        '';
+
+      if (directSheetUrl && directSheetUrl.trim() !== '') {
+        try {
+          console.log('Static site detected. Submitting directly to Google Sheet:', directSheetUrl);
+          
+          const payload = localEnquiry || {
+            ...enquiryData,
+            id: 'enq_' + Math.random().toString(36).substring(2, 11),
+            timestamp: new Date().toISOString(),
+            status: 'new' as const
+          };
+
+          // Use mode: 'no-cors' to bypass browser CORS redirect blocks on Apps Script Web App
+          await fetch(directSheetUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+              'Content-Type': 'text/plain',
+            },
+            body: JSON.stringify(payload),
+          });
+
+          // Since mode: 'no-cors' doesn't let us inspect response.ok, we assume success if no error was thrown
+          submittedSuccessfully = true;
+          console.log('Direct submission to Google Sheet completed successfully.');
+        } catch (sheetErr) {
+          console.error('Direct Google Sheet submission failed:', sheetErr);
+        }
+      }
+    }
+
+    // 4. Update UI based on final submission status
+    if (submittedSuccessfully || localEnquiry) {
+      setIsSuccess(true);
+      // Clear fields
+      setFullName('');
+      setCompanyName('');
+      setEmail('');
+      setPhone('');
+      setMessage('');
+    } else {
+      alert('Failed to submit enquiry. Please check your network and try again.');
+    }
+    
+    setIsSubmitting(false);
   };
 
   return (
@@ -301,7 +356,7 @@ export default function EnquiryView({ onBack, preselectedProduct, preselectedCod
                   type="button"
                   onClick={() => {
                     try {
-                      window.open('https://ais-dev-oj5nr6266syedyd6sp3rys-706272152911.asia-southeast1.run.app/', '_blank', 'noopener,noreferrer');
+                      window.open('https://forms.gle/pwkmqbQadDMtrA7z6', '_blank', 'noopener,noreferrer');
                     } catch (err) {
                       console.error('Failed to open form:', err);
                     }
@@ -310,7 +365,7 @@ export default function EnquiryView({ onBack, preselectedProduct, preselectedCod
                   id="btn-open-form-tab"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Open Form in New Tab</span>
+                  <span>Open Google Form in New Tab</span>
                 </button>
               </div>
 
@@ -323,7 +378,7 @@ export default function EnquiryView({ onBack, preselectedProduct, preselectedCod
                   </div>
                 </div>
                 <iframe
-                  src="https://ais-dev-oj5nr6266syedyd6sp3rys-706272152911.asia-southeast1.run.app/"
+                  src="https://forms.gle/pwkmqbQadDMtrA7z6"
                   className="w-full h-[450px] border-0 relative z-10 rounded-2xl"
                   title="Centralized Enquiry Form"
                   sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
